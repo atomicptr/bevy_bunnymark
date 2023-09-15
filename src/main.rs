@@ -4,8 +4,6 @@ use bevy::window::ExitCondition;
 use bevy_pixel_camera::{PixelCameraBundle, PixelCameraPlugin};
 use rand::Rng;
 
-const WINDOW_WIDTH: u32 = 800;
-const WINDOW_HEIGHT: u32 = 600;
 const BUNNY_WIDTH: f32 = 26.0;
 const BUNNY_HEIGHT: f32 = 37.0;
 const DEFAULT_BUNNIES: u64 = 128;
@@ -18,7 +16,6 @@ fn main() {
                 .set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "Bevy Bunny Mark".into(),
-                        resolution: (WINDOW_WIDTH as f32, WINDOW_HEIGHT as f32).into(),
                         resizable: true,
                         ..default()
                     }),
@@ -66,11 +63,7 @@ struct BunnyCount {
 }
 
 fn setup(mut commands: Commands) {
-    commands.spawn(PixelCameraBundle::from_resolution(
-        WINDOW_WIDTH as i32,
-        WINDOW_HEIGHT as i32,
-        true,
-    ));
+    commands.spawn(PixelCameraBundle::from_zoom(1));
 
     commands.spawn((
         SpatialBundle::default(),
@@ -145,12 +138,21 @@ fn spawn_bunnies(
     });
 }
 
-fn bunny_movement(mut bunnies: Query<(&mut Transform, &mut Bunny)>, time: Res<Time>) {
+fn bunny_movement(
+    mut bunnies: Query<(&mut Transform, &mut Bunny)>,
+    time: Res<Time>,
+    window: Query<&Window>,
+) {
+    let window = window.single();
+
+    let window_width = window.resolution.width();
+    let window_height = window.resolution.height();
+
     for (mut transform, mut bunny) in &mut bunnies {
         let speed = 200.0 * bunny.speed_factor * time.delta_seconds();
 
-        let half_width = WINDOW_WIDTH as f32 * 0.5 - BUNNY_WIDTH * 0.5;
-        let half_height = WINDOW_HEIGHT as f32 * 0.5 - BUNNY_HEIGHT * 0.5;
+        let half_width = window_width as f32 * 0.5 - BUNNY_WIDTH * 0.5;
+        let half_height = window_height as f32 * 0.5 - BUNNY_HEIGHT * 0.5;
 
         if transform.translation.x <= -half_width || transform.translation.x >= half_width {
             bunny.direction.x *= -1.0;
@@ -162,10 +164,10 @@ fn bunny_movement(mut bunnies: Query<(&mut Transform, &mut Bunny)>, time: Res<Ti
 
         transform.translation += bunny.direction * speed;
 
-        if transform.translation.x < (WINDOW_WIDTH as f32 * -2.0)
-            || transform.translation.x > (WINDOW_WIDTH as f32 * 2.0)
-            || transform.translation.y < (WINDOW_HEIGHT as f32 * -2.0)
-            || transform.translation.y > (WINDOW_HEIGHT as f32 * 2.0)
+        if transform.translation.x < (window_width as f32 * -2.0)
+            || transform.translation.x > (window_width as f32 * 2.0)
+            || transform.translation.y < (window_height as f32 * -2.0)
+            || transform.translation.y > (window_height as f32 * 2.0)
         {
             transform.translation = Vec3::default();
         }
