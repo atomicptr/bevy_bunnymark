@@ -1,11 +1,12 @@
 use bevy::diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin};
 use bevy::prelude::*;
-use bevy::window::ExitCondition;
+use bevy::window::{ExitCondition, WindowResized};
 use bevy_pixel_camera::{PixelCameraBundle, PixelCameraPlugin};
 use rand::Rng;
 
 const BUNNY_WIDTH: f32 = 26.0;
 const BUNNY_HEIGHT: f32 = 37.0;
+const TILE_SIZE: u32 = 32;
 const DEFAULT_BUNNIES: u64 = 128;
 
 fn main() {
@@ -31,6 +32,7 @@ fn main() {
         .add_systems(
             Update,
             (
+                resize_background,
                 spawn_bunnies,
                 bunny_movement,
                 bunny_spawn_controller,
@@ -62,8 +64,21 @@ struct BunnyCount {
     desired: u64,
 }
 
-fn setup(mut commands: Commands) {
+#[derive(Component)]
+struct Grass(i32, i32);
+
+fn setup(mut commands: Commands, asset_server: Res<AssetServer>, window: Query<&Window>) {
     commands.spawn(PixelCameraBundle::from_zoom(1));
+
+    let window = window.single();
+
+    render_background(
+        window.resolution.width(),
+        window.resolution.height(),
+        &mut commands,
+        &asset_server,
+        None,
+    );
 
     commands.spawn((
         SpatialBundle::default(),
@@ -100,6 +115,66 @@ fn setup(mut commands: Commands) {
                 BunnyText,
             ));
         });
+}
+
+fn resize_background(
+    mut commands: Commands,
+    asset_server: Res<AssetServer>,
+    mut events: EventReader<WindowResized>,
+    grass: Query<&Grass>,
+) {
+    for event in events.iter() {
+        render_background(
+            event.width,
+            event.height,
+            &mut commands,
+            &asset_server,
+            Some(&grass),
+        );
+    }
+}
+
+fn render_background(
+    width: f32,
+    height: f32,
+    mut commands: &mut Commands,
+    asset_server: &Res<AssetServer>,
+    grass: Option<&Query<&Grass>>,
+) {
+    let tiles_width = ((width / TILE_SIZE as f32 + 1.0) * 0.5).ceil() as i32;
+    let tiles_height = ((height / TILE_SIZE as f32 + 1.0) * 0.5).ceil() as i32;
+
+    for i in -tiles_width..tiles_width {
+        for j in -tiles_height..tiles_height {
+            if let Some(grass) = grass {
+                let mut has_tile = false;
+
+                for grass in grass {
+                    if i == grass.0 && j == grass.1 {
+                        has_tile = true;
+                        break;
+                    }
+                }
+
+                if has_tile {
+                    continue;
+                }
+            }
+
+            commands.spawn((
+                SpriteBundle {
+                    texture: asset_server.load("grass.png"),
+                    transform: Transform::from_xyz(
+                        i as f32 * TILE_SIZE as f32,
+                        j as f32 * TILE_SIZE as f32,
+                        -1.0,
+                    ),
+                    ..default()
+                },
+                Grass(i, j),
+            ));
+        }
+    }
 }
 
 fn spawn_bunnies(
